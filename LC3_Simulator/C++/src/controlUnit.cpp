@@ -54,7 +54,7 @@ void controlUnit::DECODE()
 {
     FETCH_OPERANDS(); //Optine los operandos de la instrucción
     //NOTA: La fase EXECUTE() y STORE_RESULT(), estan indirectamente implementadas en esta fase, al hacer las operaciones correspondiente a cada instrucción
-    instruction.BEN = instruction.N & (CC == 'N') + instruction.P & (CC == 'P') + instruction.Z & (CC == 'Z'); //BEN<–IR[11] & N + IR[10] & Z + IR[9] & P
+    instruction.BEN = (instruction.N & (CC == 'N')) + (instruction.P & (CC == 'P')) + (instruction.Z & (CC == 'Z')); //BEN<–IR[11] & N + IR[10] & Z + IR[9] & P
     switch (instruction.opcode)                                                                                //Evalua que instrucción se va a hacer
     {
     case 0: //BR

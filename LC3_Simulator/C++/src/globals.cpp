@@ -36,5 +36,6 @@ bool globals::isloadOtherFiles()
 bool globals::openWEB_API(){
     if(SO == "Windows")
         return system("start ../WEBAPP/HTML/index.html");
-    return system("open ../WEBAPP/HTML/index.html");
+    return system("xdg-open https://www.google.com/");
+    // sudo apt install xdg-utils
 }

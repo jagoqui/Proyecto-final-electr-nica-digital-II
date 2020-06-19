@@ -41,11 +41,11 @@ private:
     short int orig;                //Posición de la memoria en donde inicia el programa
     short int R[8] = {0};          //Registros => R0, R2, R3, R4, R5, R6 y R7
     short int PC = 0;              //Program couter
-    unsigned int IR = 0;           //Instruction register
+    short int IR = 0;           //Instruction register
     short int PSR = 0;
     char CC = ' ';    //Flip-Flops que esta activado para controlar los branch´s
-    unsigned int MAR; //Memory address register
-    unsigned int MDR; //Memory data register
+    short int MAR; //Memory address register
+    short int MDR; //Memory data register
     //Metodos
 public:
     controlUnit(short int *memory, unsigned int orig); //Constructor

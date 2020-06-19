@@ -49,13 +49,13 @@ void file::read()
                 counter++;
                 //Manejo de la memoria dinámica
                 unsigned int *auxInstructions = new unsigned int[counter]; //Crea una variable auxiliar para manejar dinamicamente el vectos con la instrucciones
-                for (size_t i = 0; i < counter; i++)                       //Copia la actual información del vector de instrucciones al vector auxiliar
+                for (int i = 0; i < counter; i++)                       //Copia la actual información del vector de instrucciones al vector auxiliar
                 {
                     auxInstructions[i] = instructions[i];
                 }
                 delete[] instructions;                        //Libera el espacio anteriomente reservado por el vector de istrucciones
                 instructions = new short int[counter + 1]; //Asigna de nuevo espacio en la memoria para el vector de instrucciones, pero esta vez con una posición más para que pueda almacenar en ésta el próximo caracter del archivo
-                for (size_t i = 0; i < counter; i++)          //Recupera la copia antes hecha en el vector auxiliar
+                for (int i = 0; i < counter; i++)          //Recupera la copia antes hecha en el vector auxiliar
                 {
                     instructions[i] = auxInstructions[i];
                 }
@@ -111,7 +111,7 @@ void file::loadToMemory(short int *memory)
 {
     orig = instructions[0]; //Carga el la posición de la memoria en donde debe empezar el programa
     int i_max = orig + numInstructions;         //Limita el valor máximo que tendra el iterador i denttro del siguiente ciclo
-    for (unsigned int i = orig; i < i_max; i++) //Lee la primer instrucción que corresponde al .orig, y apartir de allí almacena en la memoria del sistema operativo las instrucciones
+    for (int i = orig; i < i_max; i++) //Lee la primer instrucción que corresponde al .orig, y apartir de allí almacena en la memoria del sistema operativo las instrucciones
     {
         instructions++;                //Se desplaza a la siguiente instrucción, no almacena el valor del .orig
         memory[i] = *instructions; //Carga cada instrucción en la memoria
