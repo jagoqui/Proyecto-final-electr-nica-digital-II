@@ -7,14 +7,12 @@
 
 using namespace std;
 
-//Detecta el sistema operativo
-
-file::file() {}
 file::file(string _url_path)
 {
     url_path = _url_path;
     read();
 }
+
 bool file::read()
 {
     file_obj.open(url_path.c_str(), ifstream::in);
@@ -28,6 +26,7 @@ bool file::read()
     }
     else if (!file_obj.fail())
     {
+        set_fileName();
         instructions = new short int[1]; //Crea un arreglo de una posición para poder hacerlo dinamico
         int counter = 0;                 //Contador para el números de instrucciones
         bool flagIs2MSBs = true;         //Bandera para saber si está en los 2 bits más significativos, inicialmete empiez true, porque cada línea la lee de izquierda a derecha
@@ -76,6 +75,7 @@ bool file::read()
         return selectPathType();
     }
 }
+
 bool file::selectPathType()
 {
     string relativePath = "../../../";
@@ -139,6 +139,7 @@ bool file::selectPathType()
     }
     return false;
 }
+
 void file::loadToMemory(short int *memory)
 {
     orig = instructions[0];             //Carga el la posición de la memoria en donde debe empezar el programa
@@ -150,6 +151,7 @@ void file::loadToMemory(short int *memory)
     }
     // delete[] instructions; //TODO:Porque sale error cuando se libera la memoria en este caso?
 }
+
 bool file::checkFileType()
 {
 
@@ -166,7 +168,20 @@ bool file::checkFileType()
     cout<<"Invalid file, try again or press 'q' to exit program, 'c' to load file cancel"<<endl<<endl;
     return false;
 }
-short int file::get_orig()
-{
-    return orig; //Retorna el .orig del programa
+
+void file::set_fileName(){
+    int size = url_path.length();
+    int initialPosName;
+    for (int i = 0; i < size; i++)
+    {
+        if(url_path[i] != 47 && url_path[i] != 92 && url_path[i] != '.') //Si url_path[i] es diferente a (/, \, .)
+        {
+            initialPosName = i;
+            i=size;
+        }
+    }
+    fileName = url_path.substr(initialPosName,size);
 }
+
+
+

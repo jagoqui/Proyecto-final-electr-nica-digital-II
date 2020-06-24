@@ -8,10 +8,11 @@ using namespace std;
 // const unsigned int HALT = 61477; //Trapx25 para finalizar el programa (F025)
 const short int HALT = -4059; //Trapx25 para finalizar el programa (F025)
 short int IR_BR_JMP_JSR;      //IR para la instrucción BR
-controlUnit::controlUnit(short int *memory, unsigned int orig)
+controlUnit::controlUnit(short int *memory, unsigned int orig, string fileName)
 {
     Memory = memory;
     this->orig = orig;
+    this->fileName = fileName;
     initialize(); //Incializa el PC y el MDR
     simulate();   //Inicia simulación
 }
@@ -38,22 +39,26 @@ void controlUnit::showRegisters(bool isBreakpoint)
     cout << endl
          << "Registers:" << endl
          << endl;
-    printf("PC :> 0x%04X : %d\n", (isBreakpoint ? (PC + 1) : PC) & 65535, (isBreakpoint ? (PC + 1) : PC) & 65535);
-    printf("IR :> 0x%04X : %d\n", (is_BR_JMP_JSR ? IR_BR_JMP_JSR : IR) & 65535, (instruction.opcode == BR ? IR_BR_JMP_JSR : IR) & 65535);
+    printf("PC :> 0x%04X : %d\n", (isBreakpoint ? (PC + 1) : PC) & 65535, isBreakpoint ? (PC + 1) : PC);
+    printf("IR :> 0x%04X : %d\n", (is_BR_JMP_JSR ? IR_BR_JMP_JSR : IR) & 65535, instruction.opcode == BR ? IR_BR_JMP_JSR : IR);
     printf("CC :> 0x%04X : %c\n", CC & 65535, CC);
     for (int i = 0; i < 8; i++)
     {
         printf("R%d :> 0x%04X : %d\n", i, R[i] & 65535, R[i]);
     }
-    printf("Memory[PC] :> 0x%04X : %d\n", (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535, (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535);
+    printf("Memory[PC] :> 0x%04X : %d\n", (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535, isBreakpoint ? Memory[PC + 1] : Memory[PC]);
     printf("\n\n");
     cout << numInstructions << " instructions executed" << endl
+         << endl;
+    cout << "LC3 Simulator" << endl;
+    cout << "File in simulation => " << fileName << endl
+         << endl
          << endl;
     if (PC != orig && isloadOtherFiles()) //Solo pregunta si desea agregar otro archivo cuando ya haya empezado la simulación
     {
         loadFiles();
     }
-    if (IR != HALT)
+    if (IR != HALT || (IR == HALT && PC == orig))
         set_stepByStep(); //Pregunta por el tipo de ejecución
 }
 
@@ -115,6 +120,7 @@ void controlUnit::simulate()
     {
         cout << endl
              << "Detecta HALT" << endl;
+        R[7] = PC;
         PC--; //TODO:Cuidado con ésto
         showRegisters(false);
     }
@@ -352,14 +358,13 @@ void controlUnit::setCC(short int result)
 
 void controlUnit::loadFiles()
 {
-    file fileToSimulate;                 //Crea un objeto de tipo file, para carga el archivo a simular en la memoria
+    file fileToSimulate; //Crea un objeto de tipo file, para carga el archivo a simular en la memoria
     isMemoryReset();
     systemPause();
     systemClear();
     if (fileToSimulate.selectPathType()) //Proceso de carga del archivo
     {
         fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
-        fileToSimulate.~file();              //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
         if (isloadOtherFiles())              //Pregunta si desea cargar más archivo
         {
             loadFiles(); //Carga el otro archivo
@@ -369,7 +374,11 @@ void controlUnit::loadFiles()
             isBreakpointsReset();
             systemPause();
             systemClear();
-            controlUnit(Memory, fileToSimulate.get_orig()); //Inicia toda la máquina de estados para simular el nuevo archivo cargado
+            this->orig = fileToSimulate.get_orig();         //Carga el origen del nuevo archivo
+            this->fileName = fileToSimulate.get_fileName(); //Carga el nombre del nuevo archivo
+            initialize();                                   //Incializa el PC y el MDR
+            simulate();                                     //Inicia simulación
+            fileToSimulate.~file();                         //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
         }
     }
 }
@@ -397,37 +406,63 @@ short int controlUnit::to_a2_complement(short int num)
 
 void controlUnit::isMemoryReset()
 {
-    cin.clear();
-    cin.ignore(10000,'\n');
+    systemClear();
     char reset;
+    cin.ignore(); //Limpia Buffer
     cout << "Do you want memory reset? (y/N)" << endl;
     cout << ":> ";
-    reset = cin.get();
+    reset = cin.get(); //TODO: Despues de
+    cin.clear();
+    cin.ignore(10000, '\n');
     if (reset == 'y' || reset == 'Y')
     {
-        numInstructions = 0; //Inicializa en el número de instrucciones ejecutadas
-        Memory = {0};                    //LLeva toda la memoria a cero
+        short int Memory_aux[65536] = {0};
+        resetRegisters();
         file LC3_OS("LC3_OS/lc3os.obj"); //Lee el sistema operativo de la LC3
-        LC3_OS.loadToMemory(Memory);     //Carga a la memoria del LC3 su sistema operativo
-        LC3_OS.~file();                  //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
-        cout << endl
-             << endl
-             << "Memory reseted and LC3_OS loaded successfully" << endl;
+        LC3_OS.loadToMemory(Memory_aux); //Carga a la memoria del LC3 su sistema operativo
+        //LC3_OS.~file();                  //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
+        //TODO: Despues de reiniciar dos archivos de forma genera problema si se elimina el objeto, entoces, temporalmente se comentará
+        for (int i = 0; i < 65535; i++)
+        {
+            Memory[i] = Memory_aux[i];
+        }
+        cout << "Memory reseted and LC3_OS loaded successfully" << endl;
     }
 }
 
 void controlUnit::isBreakpointsReset()
 {
     char reset;
-    breakpoints.show_all();
+    cin.clear();
+    cin.ignore(10000, '\n');
     cout << "Do you want breakpoints reset? (y/N)" << endl;
     cout << ":> ";
     reset = cin.get();
     if (reset == 'y' || reset == 'Y')
     {
-        breakpoints.~breakpoint(); //Elimina los anteriores breakpoints
-        breakpoint breakpoints; //Crea de nuevo un objeto breakpoint
+        cin.clear();
+        cin.ignore(10000, '\n');
+        breakpoints.resetBreakpoints(); //Elimina los anteriores breakpoints
+        breakpoints.setBreakpoints();   //Crea de nuevo un objeto breakpoint
+    }
+    else
+    {
         breakpoints.show_all();
     }
-    breakpoints.show_all();
+}
+
+void controlUnit::resetRegisters()
+{
+    instruction = {0};
+    for (int i = 0; i < 8; i++)
+    {
+        R[i] = 0;
+    }
+    PC = 0;
+    IR = 0;
+    PSR = 0;
+    CC = 0;
+    stepByStep = false;
+    numInstructions = 0;
+    IR_BR_JMP_JSR = 0;
 }

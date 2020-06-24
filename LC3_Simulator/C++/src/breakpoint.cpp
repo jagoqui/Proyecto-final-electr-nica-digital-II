@@ -13,6 +13,7 @@ breakpoint::breakpoint()
 {
     setBreakpoints();
 }
+
 void breakpoint::setBreakpoints()
 {
     char addBreakpoint = 0;
@@ -120,6 +121,7 @@ void breakpoint::setBreakpoints()
         setBreakpoints();
     }
 }
+
 void breakpoint::getString_to_hex(short int &ptr)
 {
     string hexStr = "";
@@ -242,5 +244,16 @@ void breakpoint::show_all()
     else
     {
         cout << "No set breakpoits." << endl;
+    }
+}
+
+void breakpoint::resetBreakpoints(){
+    PC =NULL;
+    IR = NULL;
+    CC = NULL; 
+    PSR = NULL;
+    for (int i = 0; i < 8; i++)
+    {
+        R[i]= NULL;
     }
 }

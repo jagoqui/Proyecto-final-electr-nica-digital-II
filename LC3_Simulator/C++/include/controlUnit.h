@@ -53,6 +53,7 @@ class controlUnit : public globals //Clase para el control de las instrucciones
 {
     //Atributos
 private:
+    string fileName;               //Nombre del archivo cargado
     breakpoint breakpoints;        //Crea un objeto tipo break point para setear los breakpoint
     INSTRUCTION instruction = {0}; //Crea una instacia de la estructura INSTRUCTION
     short int *Memory;             //Memoria del LC3
@@ -68,8 +69,8 @@ private:
     unsigned int numInstructions = 0; //Número de instrucciones ejecutadas
     //Metodos
 public:
-    controlUnit(short int *memory, unsigned int orig); //Constructor
-    ~controlUnit(){};                                  //Destructor
+    controlUnit(short int *memory, unsigned int orig, string fileName); //Constructor
+    ~controlUnit(){};                                                   //Destructor
 private:
     //Metodos para el ciclo de instrucciones
     void initialize(); //Inicializa los valores para el ciclo de intruciones
@@ -83,11 +84,12 @@ private:
     //METODOS SECUNDARIOS para hacer calculos y obtener valores de registro
     void setCC(short int result);                                                                 //Calcula si la el resultado de instrucción fue negativo, positivo y cero
     void isBreakpoint(string nameRegister, short int currentValue, short int breakpointRegister); //Buscar si el valor actual del registro es un breakpoint
-    void showRegisters(bool isBreakpoint);                                                                         //Muestra el estado actual de los regritros
+    void showRegisters(bool isBreakpoint);                                                        //Muestra el estado actual de los regritros
     void loadFiles();                                                                             //Carga otros archivos
     void set_stepByStep();                                                                        //Setea la bandera de activación de ejecución paso a paso
     short int to_a2_complement(short int num);                                                    //Convierte un número a complemento a2
     void isMemoryReset();                                                                         //Pregunta si desea resetear la memoria
     void isBreakpointsReset();                                                                    //Pregunta si desea reseterar los breakpoints
+    void resetRegisters();                                                                        //Resetea todos lo registros
 };
 #endif

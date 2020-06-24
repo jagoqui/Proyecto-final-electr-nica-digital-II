@@ -30,6 +30,7 @@ public:
     char *get_CC() { return CC; };                //Retorna el breakpoint para CC
     short int *get_R(int i) { return R[i]; };     //Retorna el breakpoint para los registros
     void show_all();                              //Muestra en consola todos los breakpoints
+    void resetBreakpoints();                      //LLeva a NULL todos los breakpoints
 };
 
 #endif
