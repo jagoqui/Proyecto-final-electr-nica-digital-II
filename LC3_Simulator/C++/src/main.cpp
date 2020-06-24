@@ -20,14 +20,16 @@ globals g;
 int main(int argc, char *argV[])
 {
     g.systemClear();
-    cout<<"Running in "<<SO<<endl<<endl;
-    cout<<"LC3 SIMULATOR"<<endl<<endl;
-    cout<<"Init ... preload LC3O_S"<<endl;
+    cout << "Running in " << SO << endl
+         << endl;
+    cout << "LC3 SIMULATOR" << endl
+         << endl;
+    cout << "Init ... preload LC3_OS" << endl;
     g.systemPause();
     g.systemClear();
-    file LC3_OS("LC3_OS/lc3os.obj");    //Lee el sistema operativo de la LC3
-    LC3_OS.loadToMemory(Memory);        //Carga a la memoria del LC3 su sistema operativo
-    LC3_OS.~file();                     //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
+    file LC3_OS("LC3_OS/lc3os.obj"); //Lee el sistema operativo de la LC3
+    LC3_OS.loadToMemory(Memory);     //Carga a la memoria del LC3 su sistema operativo
+    LC3_OS.~file();                  //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
     cout << "Operating system load successful, press only enter key to ative WEB APP mode, or other key to active terminal mode. (enter to submit)" << endl
          << ":> ";
     if (cin.get() == '\n')
@@ -52,18 +54,25 @@ int main(int argc, char *argV[])
              << endl;
         loadFiles(); //Carga multiples archivos
     }
+    for (int i = 12448; i < 12478; i++)
+    {
+        printf("Memory[0x%04X] => 0x%04X : %d\n", i, Memory[i] & 65535, Memory[i]);
+    }
+    cout << "Finished simulation" << endl;
     return 0;
 }
 void loadFiles()
 {
     file fileToSimulate;                 //Crea un objeto de tipo file, para carga el archivo a simular en la memoria
     cin.ignore();                        //Como en la siguiente función va a ver lectura de datos, entonces evito posibles problemas, ignorando el enter del último cin.get()
-    fileToSimulate.selectPathType();     //Proceso de carga del archivo
-    fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
-    fileToSimulate.~file();              //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
-    if (g.isloadOtherFiles())            //Pregunta si desea cargar más archivos
-        loadFiles();
-    cin.ignore();
-    controlUnit control(Memory, fileToSimulate.get_orig()); //Inicia etapa de control para hacer el ciclo de instrucciones, iniciando en la direccion de memoria (.orig) en donde inicia el programa
-    control.~controlUnit();                                 //Destruye el objeto
+    if (fileToSimulate.selectPathType()) //Proceso de carga del archivo
+    {
+        fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
+        fileToSimulate.~file();              //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
+        if (g.isloadOtherFiles())            //Pregunta si desea cargar más archivos
+            loadFiles();
+        cin.ignore();
+        controlUnit control(Memory, fileToSimulate.get_orig()); //Inicia etapa de control para hacer el ciclo de instrucciones, iniciando en la direccion de memoria (.orig) en donde inicia el programa
+        control.~controlUnit();                                 //Destruye el objeto
+    }
 }

@@ -2,7 +2,7 @@ OBJS = obj/main.o obj/file.o obj/globals.o obj/controlUnit.o obj/breakpoint.o
 BYNARY = bin/sim
 CFLAGS = -g -Wall
 
-all: clean bin/sim
+all: clear clean bin/sim
 
 #This target will compile all the file
 
@@ -24,7 +24,8 @@ obj/controlUnit.o:
 obj/breakpoint.o:
 		g++ $(CFLAGS) -c -Iinclude src/breakpoint.cpp -o obj/breakpoint.o
 
-simulate:
+clear:
+		clear
 
 clean:
 		rm -f $(BYNARY) $(OBJS)

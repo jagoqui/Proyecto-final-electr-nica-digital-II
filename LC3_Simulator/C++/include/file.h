@@ -25,9 +25,10 @@ public:
     ~file(){}; //Destructor
     void loadToMemory(short int *memory);
     short int get_orig(); //Devuele el .orig del programa
-    void selectPathType(); //Selecciona el tipo de ruta del archivo
+    bool selectPathType(); //Selecciona el tipo de ruta del archivo
 private:
-    void read(); //Lee el archivo
+    bool read(); //Lee el archivo
+    bool checkFileType(); //Verifica que el archivo que cargó tenga extención .obj
 };
 
 #endif

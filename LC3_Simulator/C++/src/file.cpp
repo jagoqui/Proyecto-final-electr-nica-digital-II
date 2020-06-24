@@ -15,7 +15,7 @@ file::file(string _url_path)
     url_path = _url_path;
     read();
 }
-void file::read()
+bool file::read()
 {
     file_obj.open(url_path.c_str(), ifstream::in);
     // Si falla en la carga del archivo
@@ -24,14 +24,14 @@ void file::read()
         cout << endl
              << "Fail file load" << endl
              << endl;
-        selectPathType();
+        return selectPathType();
     }
-    else
+    else if (!file_obj.fail())
     {
         instructions = new short int[1]; //Crea un arreglo de una posición para poder hacerlo dinamico
-        int counter = 0;                    //Contador para el números de instrucciones
-        bool flagIs2MSBs = true;            //Bandera para saber si está en los 2 bits más significativos, inicialmete empiez true, porque cada línea la lee de izquierda a derecha
-        while (!file_obj.eof())             //Mientras no sea el final del archivo
+        int counter = 0;                 //Contador para el números de instrucciones
+        bool flagIs2MSBs = true;         //Bandera para saber si está en los 2 bits más significativos, inicialmete empiez true, porque cada línea la lee de izquierda a derecha
+        while (!file_obj.eof())          //Mientras no sea el final del archivo
         {
             instructions[counter] = file_obj.get(); //Obtine los dos primeros bit más significativos de cada instrucción y al terminar de leer pasa el puntero del archivo al siguiente byte
             if (!file_obj.eof())                    //Si el siguiente byte tiene el valor -1, entonces indica que el documento se terminó, etonces en éste caso no seguira guardando caracteres
@@ -44,16 +44,17 @@ void file::read()
                 {
                     counter--;
                     instructions[counter] += instructions[counter + 1];
+                    instructions[counter] = instructions[counter] & 65535; //Lleva a cero los 16 bits más significativos del short int
                 }
                 flagIs2MSBs = !flagIs2MSBs; //La bandera cambia de estado, porque va pasar de leer los 2 bit mas significativos a los 2 menos significativos, o viceversa
                 counter++;
                 //Manejo de la memoria dinámica
                 unsigned int *auxInstructions = new unsigned int[counter]; //Crea una variable auxiliar para manejar dinamicamente el vectos con la instrucciones
-                for (int i = 0; i < counter; i++)                       //Copia la actual información del vector de instrucciones al vector auxiliar
+                for (int i = 0; i < counter; i++)                          //Copia la actual información del vector de instrucciones al vector auxiliar
                 {
                     auxInstructions[i] = instructions[i];
                 }
-                delete[] instructions;                        //Libera el espacio anteriomente reservado por el vector de istrucciones
+                delete[] instructions;                     //Libera el espacio anteriomente reservado por el vector de istrucciones
                 instructions = new short int[counter + 1]; //Asigna de nuevo espacio en la memoria para el vector de instrucciones, pero esta vez con una posición más para que pueda almacenar en ésta el próximo caracter del archivo
                 for (int i = 0; i < counter; i++)          //Recupera la copia antes hecha en el vector auxiliar
                 {
@@ -66,16 +67,23 @@ void file::read()
         file_obj.close();              //Cierra el archivo
         cout << "Successful loading" << endl
              << endl;
+        return true;
+    }
+    else
+    {
+        cout << "Error! not found file, try again or press 'q' to exit program, 'c' to file load cancel" << endl
+             << endl;
+        return selectPathType();
     }
 }
-void file::selectPathType()
+bool file::selectPathType()
 {
     string relativePath = "../../../";
     char pathType = 0;
-    cout << "Enter path, select path type" << endl
-         << endl; 
+    cout << "Enter path, select path type ('q' : exit program | 'c' : file load cancel)" << endl
+         << endl;
     cout << "1.Absolute" << endl;
-    cout << "2.Relative (Recommended for file located in the same program directory)" << endl
+    cout << "2.Relative (Recommended for file located in the same project directory)" << endl
          << endl
          << ":> ";
     pathType = cin.get();
@@ -86,7 +94,14 @@ void file::selectPathType()
         cout << ":> ";
         cin.ignore(); //Omite el último salto de linea para que no intervenga con la lectura del dato
         getline(cin, url_path);
-        read();
+        if (checkFileType()) //Verifica la extensión del archivo
+        {
+            read();
+        }
+        else
+        {
+            return selectPathType();
+        }
     }
     else if (pathType == '2')
     {
@@ -95,30 +110,62 @@ void file::selectPathType()
         cin.ignore(); //Omite el último salto de linea para que no intervenga con la lectura del dato en la cadena de caracteres, se debe utilizar cada vez que utilice getline()
         getline(cin, url_path);
         url_path = relativePath + url_path;
-        read();
+        if (checkFileType()) //Verifica la extensión del archivo
+        {
+            read();
+            return true;
+        }
+        else
+        {
+            return selectPathType();
+        }
     }
-    else if (pathType != 'q' && pathType != 'Q')
+    else if (pathType != 'q' && pathType != 'Q' && pathType != 'c' && pathType != 'C')
     {
-        cout << "Invalid data, try again o press 'q' to exit" << endl
+        cout << "Invalid data, try again or press 'q' to exit program, 'c' to load file cancel" << endl
              << endl;
-        selectPathType();
-    }else{
-        cout<<"Exit"<<endl;
+        return selectPathType();
+    }
+    else if (pathType == 'c' ||  pathType == 'C')
+    {
+        cout << "Canceled" << endl
+             << endl;
+        return false;
+    }
+    else
+    {
+        cout << "Exit" << endl;
         exit(1);
     }
+    return false;
 }
 void file::loadToMemory(short int *memory)
 {
-    orig = instructions[0]; //Carga el la posición de la memoria en donde debe empezar el programa
-    int i_max = orig + numInstructions;         //Limita el valor máximo que tendra el iterador i denttro del siguiente ciclo
-    for (int i = orig; i < i_max; i++) //Lee la primer instrucción que corresponde al .orig, y apartir de allí almacena en la memoria del sistema operativo las instrucciones
+    orig = instructions[0];             //Carga el la posición de la memoria en donde debe empezar el programa
+    int i_max = orig + numInstructions; //Limita el valor máximo que tendra el iterador i denttro del siguiente ciclo
+    for (int i = orig; i < i_max; i++)  //Lee la primer instrucción que corresponde al .orig, y apartir de allí almacena en la memoria del sistema operativo las instrucciones
     {
-        instructions++;                //Se desplaza a la siguiente instrucción, no almacena el valor del .orig
+        instructions++;            //Se desplaza a la siguiente instrucción, no almacena el valor del .orig
         memory[i] = *instructions; //Carga cada instrucción en la memoria
     }
     // delete[] instructions; //TODO:Porque sale error cuando se libera la memoria en este caso?
 }
+bool file::checkFileType()
+{
 
+    int sizePath = url_path.size() / sizeof(char); //Obtine el numero de caracteres del string
+    if (sizePath > 4)
+    {
+        string ext = url_path.substr(sizePath - 4, sizePath); //Extensión del archivo
+        if (ext == ".obj")
+            return true;
+        cout << "Invalid file, the file must have extension .obj, try again or press 'q' to exit program, 'c' to load file cancel" << endl
+             << endl;
+        return false;
+    }
+    cout<<"Invalid file, try again or press 'q' to exit program, 'c' to load file cancel"<<endl<<endl;
+    return false;
+}
 short int file::get_orig()
 {
     return orig; //Retorna el .orig del programa

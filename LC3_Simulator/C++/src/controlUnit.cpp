@@ -7,169 +7,305 @@ using namespace std;
 
 // const unsigned int HALT = 61477; //Trapx25 para finalizar el programa (F025)
 const short int HALT = -4059; //Trapx25 para finalizar el programa (F025)
-const short int END = 0;      //Constante para detectar la finalización del programa
-
+short int IR_BR_JMP_JSR;      //IR para la instrucción BR
 controlUnit::controlUnit(short int *memory, unsigned int orig)
 {
     Memory = memory;
     this->orig = orig;
-    isBreakpoint("x", this->orig, breakpoints.get_x());
-    systemClear();
-    showRegisters();
-    PC = orig;
-    MDR = Memory[PC];
-    simulate();
+    initialize(); //Incializa el PC y el MDR
+    simulate();   //Inicia simulación
 }
+
+void controlUnit::initialize()
+{
+    PC = orig;
+    if (breakpoints.get_PC() != NULL)
+        isBreakpoint("PC", PC, *breakpoints.get_PC());
+    MDR = Memory[PC];
+    showRegisters(false);
+    systemClear();
+}
+
+void controlUnit::showRegisters(bool isBreakpoint)
+{
+    bool is_BR_JMP_JSR = (instruction.opcode == BR) || (instruction.opcode == JMP) || (instruction.opcode == JSR_JSRR);
+    if (PC == orig)
+    {
+        systemClear();
+        cout << "START....." << endl
+             << endl;
+    }
+    cout << endl
+         << "Registers:" << endl
+         << endl;
+    printf("PC :> 0x%04X : %d\n", (isBreakpoint ? (PC + 1) : PC) & 65535, (isBreakpoint ? (PC + 1) : PC) & 65535);
+    printf("IR :> 0x%04X : %d\n", (is_BR_JMP_JSR ? IR_BR_JMP_JSR : IR) & 65535, (instruction.opcode == BR ? IR_BR_JMP_JSR : IR) & 65535);
+    printf("CC :> 0x%04X : %c\n", CC & 65535, CC);
+    for (int i = 0; i < 8; i++)
+    {
+        printf("R%d :> 0x%04X : %d\n", i, R[i] & 65535, R[i]);
+    }
+    printf("Memory[PC] :> 0x%04X : %d\n", (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535, (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535);
+    printf("\n\n");
+    cout << numInstructions << " instructions executed" << endl
+         << endl;
+    if (PC != orig && isloadOtherFiles()) //Solo pregunta si desea agregar otro archivo cuando ya haya empezado la simulación
+    {
+        loadFiles();
+    }
+    if (IR != HALT)
+        set_stepByStep(); //Pregunta por el tipo de ejecución
+}
+
+void controlUnit::set_stepByStep()
+{
+    char aux = 0; //Variable auxiliar para captura la respuesta a la siguiente pregunta
+    string executionType = stepByStep ? "disable" : "enable";
+    cin.clear();
+    cout << endl
+         << "Do you want " << executionType << " step to step execution? (y/N)" << endl;
+    cout << ":> ";
+    aux = cin.get();
+    if (PC != orig) //Soluciona error de lectura de dato, cin esta capturandi un valor basura
+        aux = cin.get();
+    if (aux == 'y' || aux == 'Y')
+    {
+        stepByStep = !stepByStep;
+        cout << endl
+             << "Step-by-step execution " << executionType << "d" << endl;
+    }
+    cin.clear();
+    cin.ignore(10000, '\n');
+    systemPause();
+    systemClear();
+    if (executionType != (stepByStep ? "disable" : "enable"))
+        cout << "Current status of registers" << endl
+             << endl;
+}
+
+void controlUnit::isBreakpoint(string nameRegister, short int currentValue, short int breakpointRegister)
+{
+    if (currentValue == breakpointRegister)
+    {
+        systemPause();
+        systemClear();
+        if (nameRegister == "CC")
+        {
+            printf("Breakpoint found :> %s = %c \n", nameRegister.c_str(), currentValue);
+        }
+        else
+        {
+            printf("Breakpoint found :> %s = 0x%04X : %d \n", nameRegister.c_str(), currentValue & 65535, currentValue);
+        }
+        if (PC != orig)
+            showRegisters(true);
+    }
+}
+
 void controlUnit::simulate()
 {
-    while (MDR != HALT && MDR != END)
+    while (MDR != HALT)
     {
-        //TODO: Simular paso a paso
+        numInstructions++;
         FETCH();
+        if (stepByStep)
+            showRegisters(false);
     }
     if (MDR == HALT) //Una se salga del ciclo de trabajo identifica que causó la interrucion, si un HATL o el .END
     {
-        instruction.opcode = MDR >> 12;
-        DECODE();
-    }
-    else
-    {
-        showRegisters();
-        cout << "Finaliza programa" << endl;
+        cout << endl
+             << "Detecta HALT" << endl;
+        PC--; //TODO:Cuidado con ésto
+        showRegisters(false);
     }
 }
+
 void controlUnit::FETCH()
 {
     MAR = PC;
-    PC++; //Si la instrucción actual no implica cambiar el valor del PC
-    isBreakpoint("PC", PC, breakpoints.get_PC());
-    instruction.opcode = MDR >> 12;
+    if (PC == orig)
+    {
+        FETCH_OPERANDS();
+    }
+    else
+    {
+        MDR = Memory[PC] & 65535;
+        IR = MDR;
+    }
+    instruction.opcode = (MDR >> 12) & 15;
     DECODE();
+    if (breakpoints.get_IR() != NULL)
+        isBreakpoint("IR", IR, *breakpoints.get_IR());
     //Segun el ciclo de instrucciones aqui iría EVALUATE_ADDRESS(), pero no es necesario porque se hace inderectamente en EVALUATE_ADDRESS() al obtener los offset y obtiene la localidad de memoria que se necesita para procesar la instrución dentro de DECODE() que asu vez está dentro de FECTCH() la anula de alguna forma, evitando hacer esa fase
     MDR = Memory[PC];
     IR = MDR;
-    isBreakpoint("IR", IR, breakpoints.get_IR());
+    if (instruction.opcode != JSR_JSRR && instruction.opcode != JMP)
+        PC++; //Aumenta el PC la instrucción actual no implica cambiar el valor del PC
+    if (breakpoints.get_PC() != NULL)
+        isBreakpoint("PC", PC, *breakpoints.get_PC());
 }
+
 void controlUnit::DECODE()
 {
     FETCH_OPERANDS(); //Optine los operandos de la instrucción
     //NOTA: La fase EXECUTE() y STORE_RESULT(), estan indirectamente implementadas en esta fase, al hacer las operaciones correspondiente a cada instrucción
-    instruction.BEN = (instruction.N & (CC == 'N')) + (instruction.P & (CC == 'P')) + (instruction.Z & (CC == 'Z')); //BEN<–IR[11] & N + IR[10] & Z + IR[9] & P
-    switch (instruction.opcode)                                                                                //Evalua que instrucción se va a hacer
+    if (PC == orig)
     {
-    case 0: //BR
+        instruction.BEN = true; //Lo inicializa en true, por si la primera instrucción es un BR
+    }
+    else
+    {
+        instruction.BEN = (instruction.N & (CC == 'N')) + (instruction.P & (CC == 'P')) + (instruction.Z & (CC == 'Z')); //BEN<–IR[11] & N + IR[10] & Z + IR[9] & P
+    }
+    IR_BR_JMP_JSR = MDR; //Setea el IR para cuando hay un salto
+    printf("MDR => 0x%04X : ", MDR & 65535);
+    switch (instruction.opcode) //Evalua que instrucción se va a hacer
+    {
+    case BR:
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9);
+        cout << "BR  ";
+        if (instruction.N)
+            cout << "N";
+        if (instruction.P)
+            cout << "P";
+        if (instruction.Z)
+            cout << "Z";
+        printf(", #%d    (%s)\n", instruction.PCoffset9, instruction.BEN ? "true" : "false");
         if (instruction.BEN)
         {
             PC += instruction.PCoffset9;
-            isBreakpoint("PC", PC, breakpoints.get_PC());
-            cout << "BR" << endl;
+            if (breakpoints.get_PC() != NULL)
+                isBreakpoint("PC", PC, *breakpoints.get_PC());
         }
         break;
-    case 1:                                                                                                   //ADD
-        R[instruction.DR] = R[instruction.SR1] + instruction.is_imm5 ? instruction.imm5 : R[instruction.SR2]; //Si hay imediado a DR le lleva SR1 +imm5, sino le lleva SR1 +SR2
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+    case ADD:
+        printf("ADD R%d, R%d, #%d\n", instruction.DR, instruction.SR1, instruction.imm5 ? instruction.imm5 : instruction.SR2);
+        R[instruction.DR] = R[instruction.SR1] + (instruction.is_imm5 ? instruction.imm5 : R[instruction.SR2]); //Si hay imediado a DR le lleva SR1 +imm5, sino le lleva SR1 +SR2
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "ADD" << endl;
         break;
-    case 2: //LD
+    case LD:
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
+        printf("LD  R%d, #%d\n", instruction.DR, instruction.PCoffset9);
         MAR = PC + instruction.PCoffset9;
         MDR = Memory[MAR];
         R[instruction.DR] = MDR;
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "LD" << endl;
         break;
-    case 3: //ST
+    case ST:
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
         MAR = PC + instruction.PCoffset9;
-        MDR = instruction.SR;
-        Memory[MAR] = MDR;
-        cout << "ST" << endl;
+        MDR = R[instruction.SR];
+        Memory[MAR & 65535] = MDR;
+        printf("ST  R%d, #%d\n", instruction.SR, instruction.PCoffset9);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
         break;
-    case 4:        //JSR & JSRR
-        R[7] = PC; //R7 <- PC
-        isBreakpoint("R7", R[7], breakpoints.get_R(7));
+    case JSR_JSRR:
+        R[7] = PC + 1;          //R7 <- PC
         if (instruction.is_JSR) //JSR
         {
-            PC = instruction.PCoffset11;
-            isBreakpoint("PC", PC, breakpoints.get_PC());
-            cout << "JSR" << endl;
+            instruction.PCoffset11 = (instruction.PCoffset11 > 1023 ? to_a2_complement(instruction.PCoffset11) : instruction.PCoffset11) + 1;
+            PC = PC + instruction.PCoffset11;
+            printf("JSR #%d\n", instruction.PCoffset11 - 1);
         }
         else //JSRR
         {
             PC = R[instruction.BaseR];
-            isBreakpoint("PC", PC, breakpoints.get_PC());
-            cout << "JSRR" << endl;
+            printf("JSRR R%d\n", instruction.BaseR);
         }
+        if (breakpoints.get_R(7) != NULL)
+            isBreakpoint("R7", R[7], *breakpoints.get_R(7));
+        if (breakpoints.get_PC() != NULL)
+            isBreakpoint("PC", PC, *breakpoints.get_PC());
         break;
-    case 5:                                                                                                   //AND
-        R[instruction.DR] = R[instruction.SR1] & instruction.is_imm5 ? instruction.imm5 : R[instruction.SR2]; //Si hay imediado a DR le lleva SR1 and imm5, sino le lleva SR1 and SR2
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+    case AND:
+        printf("AND R%d, R%d, #%d\n", instruction.DR, instruction.SR1, instruction.imm5 ? instruction.imm5 : instruction.SR2);
+        R[instruction.DR] = R[instruction.SR1] & (instruction.is_imm5 ? instruction.imm5 : R[instruction.SR2]); //Si hay imediado a DR le lleva SR1 and imm5, sino le lleva SR1 and SR2
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "AND" << endl;
         break;
-    case 6: //LDR
-        MAR = instruction.BaseR + instruction.offset6;
+    case LDR:
+        instruction.offset6 = (instruction.offset6 > 31 ? to_a2_complement(instruction.offset6) : instruction.offset6);
+        printf("LDR R%d, R%d, #%d\n", instruction.DR, instruction.BaseR, instruction.offset6);
+        MAR = R[instruction.BaseR] + instruction.offset6;
         MDR = Memory[MAR];
         R[instruction.DR] = MDR;
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "LDR" << endl;
         break;
-    case 7: //STR
-        MAR = instruction.BaseR + instruction.offset6;
-        MDR = instruction.SR;
-        Memory[MAR] = MDR;
-        cout << "STR" << endl;
+    case STR:
+        instruction.offset6 = (instruction.offset6 > 31 ? to_a2_complement(instruction.offset6) : instruction.offset6);
+        MAR = R[instruction.BaseR] + instruction.offset6;
+        MDR = R[instruction.SR];
+        Memory[MAR & 65535] = MDR;
+        printf("STR R%d, R%d, #%d\n", instruction.SR, instruction.BaseR, instruction.offset6);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
         break;
-    case 8: //RTI
+    case RTI:
+        cout << "RTI" << endl;
         break;
-    case 9: //NOT
-        R[instruction.DR] = ~(instruction.SR);
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+    case NOT:
+        printf("NOT R%d, R%d\n", instruction.DR, instruction.SR_NOT);
+        R[instruction.DR] = ~(R[instruction.SR_NOT]);
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "NOT" << endl;
         break;
-    case 10: //LDI
+    case LDI:
+        // instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9);
+        printf("LDI R%d, #%d\n", instruction.DR, instruction.PCoffset9);
         MAR = PC + instruction.PCoffset9;
         MDR = Memory[MAR];
         MAR = MDR;
         MDR = Memory[MAR];
         R[instruction.DR] = MDR;
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "LDI" << endl;
         break;
-    case 11: //STI
+    case STI:
+        // instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9);
         MAR = PC + instruction.PCoffset9;
         MDR = Memory[MAR];
         MAR = MDR;
-        MDR = instruction.SR;
-        Memory[MAR] = MDR;
-        cout << "STI" << endl;
+        MDR = R[instruction.SR];
+        Memory[MAR & 65535] = MDR;
+        printf("STI R%d, #%d\n", instruction.SR, instruction.PCoffset9);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
         break;
-    case 12: //JMP
-        PC = instruction.BaseR;
-        isBreakpoint("PC", PC, breakpoints.get_PC());
-        cout << "JMP" << endl;
+    case JMP:
+        printf("JMP R%d\n", instruction.BaseR);
+        PC = R[instruction.BaseR];
+        if (breakpoints.get_PC() != NULL)
+            isBreakpoint("PC", PC, *breakpoints.get_PC());
         break;
-    case 13: //RESERVED
+    case RESERVED:
         cout << "RESERVED" << endl;
         break;
-    case 14: //LEA
+    case LEA:
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
+        printf("LEA R%d, #%d\n", instruction.DR, instruction.PCoffset9 - 1);
         R[instruction.DR] = PC + instruction.PCoffset9;
-        isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], breakpoints.get_R(instruction.DR));
+        if (breakpoints.get_R(instruction.DR) != NULL)
+            isBreakpoint("R" + to_string(instruction.DR), R[instruction.DR], *breakpoints.get_R(instruction.DR));
         setCC(R[instruction.DR]);
-        cout << "LEA" << endl;
         break;
-    default: //TRAP
-        cout << "HALT" << endl;
+    case TRAP:
+        printf("TRAP    0x%04X\n", instruction.trapvect8);
         // MAR = instruction.trapvect8;
         // MDR = Memory[MAR];
         // PC = MDR;
-        PC++;
-        isBreakpoint("PC", PC, breakpoints.get_PC());
-        MDR = Memory[PC];
-        simulate();
+        if (breakpoints.get_PC() != NULL)
+            isBreakpoint("PC", PC, *breakpoints.get_PC());
+        break;
+    default:
+        cout << "Instruction error\n"
+             << endl;
         break;
     }
 }
@@ -177,23 +313,23 @@ void controlUnit::DECODE()
 void controlUnit::FETCH_OPERANDS()
 {
     //Se organiza segun el orden de aparición  de la tabla que hay en el libro "Introduction to computing systems" de la casa editorial Mc Graw Hill, pag 119
-    instruction.DR = (MDR & 3584) >> 9;       //Hace una AND entre MDR y 0000 1110 0000 0000  y lo desplaza 9 posiciones hacia la derecha para obtener DR
-    instruction.SR1 = (MDR & 448) >> 6;       //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener SR1
-    instruction.is_imm5 = (MDR & 32) >> 5;    //Hace una AND entre MDR y 0000 0000 0010 0000 y lo desplaza 5 posiciones hacia la derecha para obtener la bandera para saber si hay imm5 (inmediato)
-    instruction.SR2 = MDR & 7;                //Hace una AND entre MDR y 0000 0000 0000 0111, para obtener a SR2
-    instruction.imm5 = MDR & 31;              //Hace una AND entre MDR y 0000 0000 0001 1111, para obtener a imm5
-    instruction.N = (MDR & 2048) >> 11;       //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para obtener N
-    instruction.P = (MDR & 1024) >> 10;       //Hace una AND entre MDR y 0000 0100 0000 0000 y lo desplaza 10 posiciones hacia la derecha para obtener N
-    instruction.Z = (MDR & 512) >> 9;         //Hace una AND entre MDR y 0000 0010 0000 0000 y lo desplaza 11 posiciones hacia la derecha para obtener N
-    instruction.PCoffset9 = MDR & 511;        //Hace una AND entre MDR y 0000 0001 1111 1111, para obtener PCoffset9
-    instruction.BaseR = (MDR & 448) >> 6;     //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener BaseR
-    instruction.is_JSR = (MDR & 2048) >> 11;  //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para saber si la instrucción es JSR
-    instruction.is_JSRR = (MDR & 2048) >> 11; //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para saber si la instrucción es JSRR
-    instruction.PCoffset11 = MDR & 2047;      //Hace una AND entre MDR y 0000 0111 1111 1111, para obtener PCoffset11
-    instruction.offset6 = MDR & 63;           //Hace una AND entre MDR y 0000 0000 0011 1111, para obtener offset6
-    instruction.SR_NOT = (MDR & 448) >> 6;    //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener SR_NOT
-    instruction.SR = (MDR & 3584) >> 9;       //Hace una AND entre MDR y 0000 1110 0000 0000  y lo desplaza 9 posiciones hacia la derecha para obtener SR
-    instruction.trapvect8 = MDR & 255;        //Hace una AND entre MDR y 0000 0000 1111 1111, para obtener trapvec8
+    instruction.DR = (MDR & 3584) >> 9;            //Hace una AND entre MDR y 0000 1110 0000 0000  y lo desplaza 9 posiciones hacia la derecha para obtener DR
+    instruction.SR1 = (MDR & 448) >> 6;            //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener SR1
+    instruction.is_imm5 = (MDR & 32) >> 5;         //Hace una AND entre MDR y 0000 0000 0010 0000 y lo desplaza 5 posiciones hacia la derecha para obtener la bandera para saber si hay imm5 (inmediato)
+    instruction.SR2 = MDR & 7;                     //Hace una AND entre MDR y 0000 0000 0000 0111, para obtener a SR2
+    instruction.imm5 = to_a2_complement(MDR & 31); //Hace una AND entre MDR y 0000 0000 0001 1111, para obtener a imm5
+    instruction.N = (MDR & 2048) >> 11;            //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para obtener N
+    instruction.P = (MDR & 1024) >> 10;            //Hace una AND entre MDR y 0000 0100 0000 0000 y lo desplaza 10 posiciones hacia la derecha para obtener N
+    instruction.Z = (MDR & 512) >> 9;              //Hace una AND entre MDR y 0000 0010 0000 0000 y lo desplaza 11 posiciones hacia la derecha para obtener N
+    instruction.PCoffset9 = MDR & 511;             //Hace una AND entre MDR y 0000 0001 1111 1111, para obtener PCoffset9
+    instruction.BaseR = (MDR & 448) >> 6;          //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener BaseR
+    instruction.is_JSR = (MDR & 2048) >> 11;       //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para saber si la instrucción es JSR
+    instruction.is_JSRR = (MDR & 2048) >> 11;      //Hace una AND entre MDR y 0000 1000 0000 0000 y lo desplaza 11 posiciones hacia la derecha para saber si la instrucción es JSRR
+    instruction.PCoffset11 = MDR & 2047;           //Hace una AND entre MDR y 0000 0111 1111 1111, para obtener PCoffset11
+    instruction.offset6 = MDR & 63;                //Hace una AND entre MDR y 0000 0000 0011 1111, para obtener offset6
+    instruction.SR_NOT = (MDR & 448) >> 6;         //Hace una AND entre MDR y 0000 0001 1100 0000 y lo desplaza 6 posiciones hacia la derecha para obtener SR_NOT
+    instruction.SR = (MDR & 3584) >> 9;            //Hace una AND entre MDR y 0000 1110 0000 0000  y lo desplaza 9 posiciones hacia la derecha para obtener SR
+    instruction.trapvect8 = MDR & 255;             //Hace una AND entre MDR y 0000 0000 1111 1111, para obtener trapvec8
 }
 
 void controlUnit::setCC(short int result)
@@ -210,65 +346,88 @@ void controlUnit::setCC(short int result)
     {
         CC = 'Z';
     }
-    isBreakpoint("CC", CC, breakpoints.get_CC());
+    if (breakpoints.get_CC() != NULL)
+        isBreakpoint("CC", CC, *breakpoints.get_CC());
 }
 
-void controlUnit::isBreakpoint(string nameRegister, short int currentValue, short int breakpointRegister)
+void controlUnit::loadFiles()
 {
-    if (currentValue == breakpointRegister && breakpointRegister != 0)
+    file fileToSimulate;                 //Crea un objeto de tipo file, para carga el archivo a simular en la memoria
+    isMemoryReset();
+    systemPause();
+    systemClear();
+    if (fileToSimulate.selectPathType()) //Proceso de carga del archivo
     {
-        systemClear();
-        if (nameRegister == "CC")
+        fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
+        fileToSimulate.~file();              //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
+        if (isloadOtherFiles())              //Pregunta si desea cargar más archivo
         {
-            // printf("Breakpoint found :> %s = %s\n",nameRegister.c_str() ,currentValue);
-            printf("Breakpoint found :> %s = %c \n", nameRegister.c_str(), currentValue);
+            loadFiles(); //Carga el otro archivo
         }
         else
         {
-            printf("Breakpoint found :> %s = 0x%x : %d \n", nameRegister.c_str(), currentValue, currentValue);
+            isBreakpointsReset();
+            systemPause();
+            systemClear();
+            controlUnit(Memory, fileToSimulate.get_orig()); //Inicia toda la máquina de estados para simular el nuevo archivo cargado
         }
-        showRegisters();
     }
 }
-void controlUnit::showRegisters()
+
+short int controlUnit::to_a2_complement(short int num)
 {
-    cout << endl
-         << "Registers:" << endl
-         << endl;
-    printf("PC :> 0x%x : %d\n", PC, PC);
-    printf("x  :> 0x%x : %d\n", this->orig, this->orig);
-    printf("IR :> 0x%x : %d\n", IR, IR);
-    printf("CC :> 0x%x : %c\n", CC, CC);
-    for (int i = 0; i < 8; i++)
+    if (num > 15 && num < 32) //imm5
     {
-        printf("R%d :> 0x%x : %d\n", i, R[i], R[i]);
+        num = (num & 15) - 16;
     }
-    printf("\n\n");
-    if (PC != 0)               //Solo pregunta si desea agregar otro archivo cuando ya haya empezado la simulación
+    else if (num > 31 && num < 64) //offset6
     {
-        if (isloadOtherFiles()) //Pregunta si desea cargar más archivos
-            loadFiles();
+        num = (num & 31) - 32;
     }
-    systemPause();
-    cout<<endl;
-    systemClear();
+    else if (num > 255 && num < 511) //PCoffset9
+    {
+        num = (num & 255) - 256;
+    }
+    else if (num > 1023 && num < 2048) //PCoffset11
+    {
+        num = (num & 1023) - 1024;
+    }
+    return num;
 }
-void controlUnit::loadFiles()
+
+void controlUnit::isMemoryReset()
 {
-    bool isLastInstructionHALT = (MDR == HALT);
-    systemClear();
-    file fileToSimulate;                 //Crea un objeto de tipo file, para carga el archivo a simular en la memoria
-    cin.ignore();                        //Como en la siguiente función va a ver lectura de datos, entonces evito posibles problemas, ignorando el enter del último cin.get()
-    fileToSimulate.selectPathType();     //Proceso de carga del archivo
-    fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
-    fileToSimulate.~file();              //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
-    breakpoints.~breakpoint();           //Elimina los anteriores breakpoints
-    breakpoint breakpoints;              //Crea de nuevo un objeto breakpoint
-    if (isloadOtherFiles())              //Pregunta si desea cargar más archivos
+    cin.clear();
+    cin.ignore(10000,'\n');
+    char reset;
+    cout << "Do you want memory reset? (y/N)" << endl;
+    cout << ":> ";
+    reset = cin.get();
+    if (reset == 'y' || reset == 'Y')
     {
-        loadFiles();                     //Carga el otro archivo
-        if(isLastInstructionHALT)
-            simulate();
-            //Recupera el .orig
-    } 
+        numInstructions = 0; //Inicializa en el número de instrucciones ejecutadas
+        Memory = {0};                    //LLeva toda la memoria a cero
+        file LC3_OS("LC3_OS/lc3os.obj"); //Lee el sistema operativo de la LC3
+        LC3_OS.loadToMemory(Memory);     //Carga a la memoria del LC3 su sistema operativo
+        LC3_OS.~file();                  //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
+        cout << endl
+             << endl
+             << "Memory reseted and LC3_OS loaded successfully" << endl;
+    }
+}
+
+void controlUnit::isBreakpointsReset()
+{
+    char reset;
+    breakpoints.show_all();
+    cout << "Do you want breakpoints reset? (y/N)" << endl;
+    cout << ":> ";
+    reset = cin.get();
+    if (reset == 'y' || reset == 'Y')
+    {
+        breakpoints.~breakpoint(); //Elimina los anteriores breakpoints
+        breakpoint breakpoints; //Crea de nuevo un objeto breakpoint
+        breakpoints.show_all();
+    }
+    breakpoints.show_all();
 }

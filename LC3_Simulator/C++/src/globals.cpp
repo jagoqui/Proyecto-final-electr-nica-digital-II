@@ -9,7 +9,8 @@ using namespace std;
 
 void globals::systemClear()
 {
-    if (SO == "Windows")
+    string OperatingSystem = SO;
+    if(OperatingSystem == "Windows")
     {
         system("cls");
     }
@@ -29,13 +30,16 @@ bool globals::isloadOtherFiles()
     cout << "You want to add another file? (y/N)" << endl
          << ":> ";
     loadOtherFile = cin.get();
+    if(loadOtherFile == 0)
+        cout<<"Error"<<endl;
     if (loadOtherFile == 'Y' || loadOtherFile == 'y')
         return true;
     return false;
 }
 bool globals::openWEB_API(){
-    if(SO == "Windows")
+    string OperatingSystem = SO;
+    if(OperatingSystem == "Windows")
         return system("start ../WEBAPP/HTML/index.html");
-    return system("xdg-open https://www.google.com/");
+    return system("xdg-open ../WEBAPP/HTML/index.html");
     // sudo apt install xdg-utils
 }
