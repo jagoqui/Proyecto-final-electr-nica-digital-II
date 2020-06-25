@@ -1,5 +1,5 @@
 #This target will compile all the file
-g++ -o sim src/main.cpp src/file.cpp src/globals.cpp src/controlUnit.cpp src/breakpoint.cpp
+g++ -o sim src/main.cpp src/file.cpp src/globals.cpp src/controlUnit.cpp src/breakpoint.cpp src/conio.cpp
 ./sim
 rm sim.exe
 cd ../

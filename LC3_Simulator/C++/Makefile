@@ -1,4 +1,4 @@
-OBJS = obj/main.o obj/file.o obj/globals.o obj/controlUnit.o obj/breakpoint.o
+OBJS = obj/main.o obj/file.o obj/globals.o obj/controlUnit.o obj/breakpoint.o obj/conio.o
 BYNARY = bin/sim
 CFLAGS = -g -Wall
 
@@ -23,6 +23,9 @@ obj/controlUnit.o:
 
 obj/breakpoint.o:
 		g++ $(CFLAGS) -c -Iinclude src/breakpoint.cpp -o obj/breakpoint.o
+
+obj/conio.o:
+		g++ $(CFLAGS) -c -Iinclude src/conio.cpp -o obj/conio.o
 
 clear:
 		clear

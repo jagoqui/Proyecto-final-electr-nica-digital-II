@@ -5,9 +5,16 @@
 
 using namespace std;
 
-// const unsigned int HALT = 61477; //Trapx25 para finalizar el programa (F025)
-const short int HALT = -4059; //Trapx25 para finalizar el programa (F025)
-short int IR_BR_JMP_JSR;      //IR para la instrucción BR
+const short int MAX_VALUE = 65535; //Valor máximo en decimal que puede tomar un número de 16 bits, se utilizará para pasar a complemento a2
+const short int HALT = -4059;      //Trapx25 para finalizar el programa (F025)
+const short int OS_KBSR = -512;    //Key board status register (xFE00)
+const short int OS_KBDR = -510;    //Key board data register (xFE02)
+const short int OS_DSR = -508;     //Display status register (xFE04)
+const short int OS_DDR = -506;     //Display data register (xFE06)
+short int IR_BR_JMP_JSR;           //IR para la instrucción BR
+bool isEnableKeyboard = false;     //Bandera para saber si el teclado se puede habilitar
+bool displayReady = false;         //Bandera para saber si el display se puede habilitar
+
 controlUnit::controlUnit(short int *memory, unsigned int orig, string fileName)
 {
     Memory = memory;
@@ -39,14 +46,14 @@ void controlUnit::showRegisters(bool isBreakpoint)
     cout << endl
          << "Registers:" << endl
          << endl;
-    printf("PC :> 0x%04X : %d\n", (isBreakpoint ? (PC + 1) : PC) & 65535, isBreakpoint ? (PC + 1) : PC);
-    printf("IR :> 0x%04X : %d\n", (is_BR_JMP_JSR ? IR_BR_JMP_JSR : IR) & 65535, instruction.opcode == BR ? IR_BR_JMP_JSR : IR);
-    printf("CC :> 0x%04X : %c\n", CC & 65535, CC);
+    printf("PC :> 0x%04X : %d\n", (isBreakpoint ? (PC + 1) : PC) & MAX_VALUE, isBreakpoint ? (PC + 1) : PC);
+    printf("IR :> 0x%04X : %d\n", (is_BR_JMP_JSR ? IR_BR_JMP_JSR : IR) & MAX_VALUE, instruction.opcode == BR ? IR_BR_JMP_JSR : IR);
+    printf("CC :> 0x%04X : %c\n", CC & MAX_VALUE, CC);
     for (int i = 0; i < 8; i++)
     {
-        printf("R%d :> 0x%04X : %d\n", i, R[i] & 65535, R[i]);
+        printf("R%d :> 0x%04X : %d\n", i, R[i] & MAX_VALUE, R[i]);
     }
-    printf("Memory[PC] :> 0x%04X : %d\n", (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & 65535, isBreakpoint ? Memory[PC + 1] : Memory[PC]);
+    printf("Memory[PC] :> 0x%04X : %d\n", (isBreakpoint ? Memory[PC + 1] : Memory[PC]) & MAX_VALUE, isBreakpoint ? Memory[PC + 1] : Memory[PC]);
     printf("\n\n");
     cout << numInstructions << " instructions executed" << endl
          << endl;
@@ -100,7 +107,7 @@ void controlUnit::isBreakpoint(string nameRegister, short int currentValue, shor
         }
         else
         {
-            printf("Breakpoint found :> %s = 0x%04X : %d \n", nameRegister.c_str(), currentValue & 65535, currentValue);
+            printf("Breakpoint found :> %s = 0x%04X : %d \n", nameRegister.c_str(), currentValue & MAX_VALUE, currentValue);
         }
         if (PC != orig)
             showRegisters(true);
@@ -111,9 +118,15 @@ void controlUnit::simulate()
 {
     while (MDR != HALT)
     {
+        if (MAR == OS_KBSR)
+            Memory[OS_KBSR & MAX_VALUE] = (Memory[OS_KBSR & MAX_VALUE] & 32767) + 32768; //Lleva a cero los 17 primeros bit más significativos, para que queden solo los 16 bits que se van a utilizar con su bit mas significativo en cero, luego se le suma 32768, para poner un '1' en el bit numero 16
+        if (MAR == OS_DSR)
+            Memory[OS_DSR & MAX_VALUE] = (Memory[OS_DSR & MAX_VALUE] & 32767) + 32768; //Lleva a cero los 17 primeros bit más significativos, para que queden solo los 16 bits que se van a utilizar con su bit mas significativo en cero, luego se le suma 32768, para poner un '1' en el bit numero 16
+        IN();                                                                          //Captura un char si fue ingresado
+        OUT();                                                                         //Imprime en consola si el display está listo
         numInstructions++;
         FETCH();
-        if (stepByStep)
+        if (stepByStep && !isEnableKeyboard && !displayReady) //Mientras el teclado y el display no esten habilitados, si la ejecución paso a paso está activada no pausara el programa, solo en el caso de un breakpoint
             showRegisters(false);
     }
     if (MDR == HALT) //Una se salga del ciclo de trabajo identifica que causó la interrucion, si un HATL o el .END
@@ -135,7 +148,7 @@ void controlUnit::FETCH()
     }
     else
     {
-        MDR = Memory[PC] & 65535;
+        MDR = Memory[PC] & MAX_VALUE;
         IR = MDR;
     }
     instruction.opcode = (MDR >> 12) & 15;
@@ -164,7 +177,7 @@ void controlUnit::DECODE()
         instruction.BEN = (instruction.N & (CC == 'N')) + (instruction.P & (CC == 'P')) + (instruction.Z & (CC == 'Z')); //BEN<–IR[11] & N + IR[10] & Z + IR[9] & P
     }
     IR_BR_JMP_JSR = MDR; //Setea el IR para cuando hay un salto
-    printf("MDR => 0x%04X : ", MDR & 65535);
+    printf("MDR => 0x%04X : ", MDR & MAX_VALUE);
     switch (instruction.opcode) //Evalua que instrucción se va a hacer
     {
     case BR:
@@ -205,9 +218,9 @@ void controlUnit::DECODE()
         instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
         MAR = PC + instruction.PCoffset9;
         MDR = R[instruction.SR];
-        Memory[MAR & 65535] = MDR;
+        Memory[MAR & MAX_VALUE] = MDR;
         printf("ST  R%d, #%d\n", instruction.SR, instruction.PCoffset9);
-        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & MAX_VALUE, MDR & MAX_VALUE, MDR);
         break;
     case JSR_JSRR:
         R[7] = PC + 1;          //R7 <- PC
@@ -248,9 +261,9 @@ void controlUnit::DECODE()
         instruction.offset6 = (instruction.offset6 > 31 ? to_a2_complement(instruction.offset6) : instruction.offset6);
         MAR = R[instruction.BaseR] + instruction.offset6;
         MDR = R[instruction.SR];
-        Memory[MAR & 65535] = MDR;
+        Memory[MAR & MAX_VALUE] = MDR;
         printf("STR R%d, R%d, #%d\n", instruction.SR, instruction.BaseR, instruction.offset6);
-        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & MAX_VALUE, MDR & MAX_VALUE, MDR);
         break;
     case RTI:
         cout << "RTI" << endl;
@@ -263,7 +276,7 @@ void controlUnit::DECODE()
         setCC(R[instruction.DR]);
         break;
     case LDI:
-        // instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9);
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
         printf("LDI R%d, #%d\n", instruction.DR, instruction.PCoffset9);
         MAR = PC + instruction.PCoffset9;
         MDR = Memory[MAR];
@@ -275,14 +288,14 @@ void controlUnit::DECODE()
         setCC(R[instruction.DR]);
         break;
     case STI:
-        // instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9);
+        instruction.PCoffset9 = (instruction.PCoffset9 > 255 ? to_a2_complement(instruction.PCoffset9) : instruction.PCoffset9) + 1;
         MAR = PC + instruction.PCoffset9;
         MDR = Memory[MAR];
         MAR = MDR;
         MDR = R[instruction.SR];
-        Memory[MAR & 65535] = MDR;
+        Memory[MAR & MAX_VALUE] = MDR;
         printf("STI R%d, #%d\n", instruction.SR, instruction.PCoffset9);
-        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & 65535, MDR & 65535, MDR);
+        printf("Storage Memory[0x%04X] => 0x%04X : %d\n", MAR & MAX_VALUE, MDR & MAX_VALUE, MDR);
         break;
     case JMP:
         printf("JMP R%d\n", instruction.BaseR);
@@ -303,9 +316,10 @@ void controlUnit::DECODE()
         break;
     case TRAP:
         printf("TRAP    0x%04X\n", instruction.trapvect8);
-        // MAR = instruction.trapvect8;
-        // MDR = Memory[MAR];
-        // PC = MDR;
+        MAR = instruction.trapvect8;
+        MDR = Memory[MAR & MAX_VALUE];
+        R[7] = PC;
+        PC = MDR;
         if (breakpoints.get_PC() != NULL)
             isBreakpoint("PC", PC, *breakpoints.get_PC());
         break;
@@ -422,7 +436,7 @@ void controlUnit::isMemoryReset()
         LC3_OS.loadToMemory(Memory_aux); //Carga a la memoria del LC3 su sistema operativo
         //LC3_OS.~file();                  //Destruye el objeto, porque ya se cargo en memoria el systema operativo y no se utilizará más
         //TODO: Despues de reiniciar dos archivos de forma genera problema si se elimina el objeto, entoces, temporalmente se comentará
-        for (int i = 0; i < 65535; i++)
+        for (int i = 0; i < MAX_VALUE; i++)
         {
             Memory[i] = Memory_aux[i];
         }
@@ -465,4 +479,24 @@ void controlUnit::resetRegisters()
     stepByStep = false;
     numInstructions = 0;
     IR_BR_JMP_JSR = 0;
+}
+
+void controlUnit::IN()
+{
+    isEnableKeyboard = (Memory[OS_KBSR & MAX_VALUE] & MAX_VALUE) >> 15; //Verifica si el teclado está habilitado, ésto es, ver el valor del bit[15] del KBSR
+    if (console.kbhit2() && isEnableKeyboard)                           //Si detecta un caracter y si el tecaldo está habilidato lo almacena si hacer echo
+    {
+        Memory[OS_KBDR & MAX_VALUE] = ((Memory[OS_KBDR & MAX_VALUE] & MAX_VALUE) & 65280) + console.getchp(); //Lleva a cero los ocho primeros bits más significativos y le suma el caracter capturado
+        Memory[OS_KBSR & MAX_VALUE] = Memory[OS_KBSR & MAX_VALUE] & 32767;                                    //Lleva a cero los primeros bits más significativos del DSR, para asi poner un '0' en el bit[15] del KBSR
+    }
+}
+
+void controlUnit::OUT()
+{
+    displayReady = (Memory[OS_DSR & MAX_VALUE] & MAX_VALUE) >> 15; //Verifica si el display esta listo para imprimir, ésto es, ver el valor del bit[15] del DSR
+    if (displayReady)                                              //Si el display esta listo, entonces imprime el caracter que hay alamcenado en DDR[7,0]
+    {
+        printf("%c", (Memory[OS_DDR & MAX_VALUE] & 255));                //Imprime el caracter almacenado en DDR[7,0]
+        Memory[OS_DSR & MAX_VALUE] = Memory[OS_DSR & MAX_VALUE] & 32767; //Lleva a cero los primeros bits más significativos del DSR, para asi poner un '0' en el bit[15] del DSR
+    }
 }

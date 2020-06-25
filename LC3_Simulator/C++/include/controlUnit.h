@@ -4,6 +4,7 @@
 #include "breakpoint.h"
 #include "globals.h"
 #include "file.h"
+#include "conio.h"
 
 //Constantes para manejar las etiquetas de las instrucciones
 const short int BR = 0;
@@ -53,6 +54,7 @@ class controlUnit : public globals //Clase para el control de las instrucciones
 {
     //Atributos
 private:
+    conio console;                 //Crea el objeto para manejar el IO de la consola
     string fileName;               //Nombre del archivo cargado
     breakpoint breakpoints;        //Crea un objeto tipo break point para setear los breakpoint
     INSTRUCTION instruction = {0}; //Crea una instacia de la estructura INSTRUCTION
@@ -91,5 +93,7 @@ private:
     void isMemoryReset();                                                                         //Pregunta si desea resetear la memoria
     void isBreakpointsReset();                                                                    //Pregunta si desea reseterar los breakpoints
     void resetRegisters();                                                                        //Resetea todos lo registros
+    void IN();                                                                                    //Detecta si se ingreso un caracter y lo almacena en KBDR
+    void OUT();                                                                                   //Detecta si el display esta listo para mostrar datos
 };
 #endif
