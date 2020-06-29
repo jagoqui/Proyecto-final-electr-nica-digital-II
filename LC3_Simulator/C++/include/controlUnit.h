@@ -41,7 +41,7 @@ struct INSTRUCTION
     bool is_JSRR;         //Bandera para saber si la isntrucción es JSRR
     bool is_imm5;         //Bandera para saber si la isntrucción tiene valor inmediato
     short int imm5;       //Valor imediato, se utiliza en AND Y ADD
-    unsigned int N, Z, P; //Estado de los Flip-Flops activados, se utiliza en BR
+    bool N, Z, P; //Estado de los Flip-Flops activados, se utiliza en BR
     //PCoffset =PC +offset
     short int PCoffset11; //PCoffset de 11 bits, se utiliza en JSR
     short int PCoffset9;  //PCoffset de 9 bits, se utiliza en BR, LD, LEA, ST y STI

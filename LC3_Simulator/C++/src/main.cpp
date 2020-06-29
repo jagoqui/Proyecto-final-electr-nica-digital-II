@@ -54,10 +54,6 @@ int main(int argc, char *argV[])
              << endl;
         loadFiles(); //Carga multiples archivos
     }
-    for (int i = 12448; i < 12478; i++)
-    {
-        printf("Memory[0x%04X] => 0x%04X : %d\n", i, Memory[i] & 65535, Memory[i]);
-    }
     cout << "Finished simulation" << endl;
     return 0;
 }
@@ -70,9 +66,12 @@ void loadFiles()
         fileToSimulate.loadToMemory(Memory); //Carga el archivo en la memoria
         if (g.isloadOtherFiles())            //Pregunta si desea cargar más archivos
             loadFiles();
-        cin.ignore();
-        controlUnit control(Memory, fileToSimulate.get_orig(), fileToSimulate.get_fileName()); //Inicia etapa de control para hacer el ciclo de instrucciones, iniciando en la direccion de memoria (.orig) en donde inicia el programa
-        fileToSimulate.~file();                                                                //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
-        control.~controlUnit();                                                                //Destruye el objeto
+        if (fileToSimulate.get_fileName() != "") //Cuando se cancela la carga del archivo el nombre del archivo queda vacio
+        {
+            cin.ignore();
+            controlUnit control(Memory, fileToSimulate.get_orig(), fileToSimulate.get_fileName()); //Inicia etapa de control para hacer el ciclo de instrucciones, iniciando en la direccion de memoria (.orig) en donde inicia el programa
+            fileToSimulate.~file();                                                                //Elimina el objeto porque ya no se utilizará, ya fue cargado en memoria
+            control.~controlUnit();                                                                //Destruye el objeto
+        }
     }
 }

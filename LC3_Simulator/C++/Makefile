@@ -25,7 +25,7 @@ obj/breakpoint.o:
 		g++ $(CFLAGS) -c -Iinclude src/breakpoint.cpp -o obj/breakpoint.o
 
 obj/conio.o:
-		g++ $(CFLAGS) -c -Iinclude src/conio.cpp -o obj/conio.o
+		g++ $(CFLAGS) -c -Iinclude src/conio.cpp -o obj/conio.o		
 
 clear:
 		clear

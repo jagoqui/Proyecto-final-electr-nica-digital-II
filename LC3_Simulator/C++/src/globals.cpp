@@ -10,7 +10,7 @@ using namespace std;
 void globals::systemClear()
 {
     string OperatingSystem = SO;
-    if(OperatingSystem == "Windows")
+    if (OperatingSystem == "Windows")
     {
         system("cls");
     }
@@ -22,23 +22,27 @@ void globals::systemClear()
 void globals::systemPause()
 {
     printf("\nPress 'Enter' to continue: ... ");
-    while (getchar() != '\n');
+    fflush( stdout ); //Libera buffer
+    while (!kbhit()); //Se queda a la espera de que ingrese un caracter y envie enter
+    getchp();
+    fflush( stdout ); //Libera buffer
 }
 bool globals::isloadOtherFiles()
 {
     char loadOtherFile;
     cout << "You want to add another file? (y/N)" << endl
          << ":> ";
-    loadOtherFile = cin.get();
-    if(loadOtherFile == 0)
-        cout<<"Error"<<endl;
+    fflush( stdout ); //Libera buffer
+    while (!kbhit()); //Se queda a la espera de que ingrese un caracter y envie enter
+    loadOtherFile = getchp();
     if (loadOtherFile == 'Y' || loadOtherFile == 'y')
         return true;
     return false;
 }
-bool globals::openWEB_API(){
+bool globals::openWEB_API()
+{
     string OperatingSystem = SO;
-    if(OperatingSystem == "Windows")
+    if (OperatingSystem == "Windows")
         return system("start ../WEBAPP/HTML/index.html");
     return system("xdg-open ../WEBAPP/HTML/index.html");
     // sudo apt install xdg-utils

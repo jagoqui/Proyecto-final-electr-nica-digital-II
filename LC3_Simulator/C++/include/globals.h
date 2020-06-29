@@ -5,6 +5,7 @@
 #include <fstream>  //Biblioteca para manejar archivos
 #include <stdlib.h> //Para manejar new y delete
 #include <stdio.h>  //Bibliteca para manejo de streams
+#include "conio.h"  //Biblioteca para el manejo de consola
 
 //Detecta el sistema operativo
 #ifdef __linux__
@@ -15,17 +16,17 @@
 
 using namespace std;
 //Clase para el manejo de las variables y funciones globales
-class globals
+class globals : public conio //Herada publicamente de conio
 {
 private:
     //Metodos
 public:
     globals(){};
     ~globals(){};
-    void systemClear(); //Limpia pantalla
-    void systemPause(); //Pausa la ejecucíon
+    void systemClear();      //Limpia pantalla
+    void systemPause();      //Pausa la ejecucíon
     bool isloadOtherFiles(); //Pregunta si desea cargar otro archivo
-    bool openWEB_API(); //Abre la aplicación WEB
+    bool openWEB_API();      //Abre la aplicación WEB
 };
 
 #endif

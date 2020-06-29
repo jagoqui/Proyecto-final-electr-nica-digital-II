@@ -1,0 +1,12 @@
+.orig x3000
+
+	LEA R0,MESSAGE
+	PUTS
+	GETC
+	LEA R0,CHAR_IN
+	OUT
+	IN
+	LEA R0, IN_CHAR
+	OUT
+	HALT
+.end

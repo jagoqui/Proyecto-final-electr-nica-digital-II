@@ -86,7 +86,9 @@ bool file::selectPathType()
     cout << "2.Relative (Recommended for file located in the same project directory)" << endl
          << endl
          << ":> ";
-    pathType = cin.get();
+    fflush( stdout ); //Libera buffer
+    while (!kbhit()); //Se queda a la espera de que ingrese un caracter y envie enter
+    pathType = getchp();
     systemClear();
     if (pathType == '1')
     {

@@ -13,7 +13,7 @@ class file : public globals
 {
     //Atributos
 private:
-    string fileName;         //Nombre del archivo cargado
+    string fileName = "";         //Nombre del archivo cargado
     string url_path;         //Dirección del archivo
     ifstream file_obj;       //Archivo
     short int *instructions; //instrucciones, sera un arreglo dinámico
