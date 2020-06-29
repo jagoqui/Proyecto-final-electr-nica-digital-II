@@ -37,11 +37,11 @@ struct INSTRUCTION
     unsigned int SR1;    //Se utilza en AND y ADD
     unsigned int SR2;    //Se utilza en AND y ADD
     //-------------------------------------------------
-    bool is_JSR;          //Bandera para saber si la isntrucción es JSR
-    bool is_JSRR;         //Bandera para saber si la isntrucción es JSRR
-    bool is_imm5;         //Bandera para saber si la isntrucción tiene valor inmediato
-    short int imm5;       //Valor imediato, se utiliza en AND Y ADD
-    bool N, Z, P; //Estado de los Flip-Flops activados, se utiliza en BR
+    bool is_JSR;    //Bandera para saber si la isntrucción es JSR
+    bool is_JSRR;   //Bandera para saber si la isntrucción es JSRR
+    bool is_imm5;   //Bandera para saber si la isntrucción tiene valor inmediato
+    short int imm5; //Valor imediato, se utiliza en AND Y ADD
+    bool N, Z, P;   //Estado de los Flip-Flops activados, se utiliza en BR
     //PCoffset =PC +offset
     short int PCoffset11; //PCoffset de 11 bits, se utiliza en JSR
     short int PCoffset9;  //PCoffset de 9 bits, se utiliza en BR, LD, LEA, ST y STI
@@ -69,6 +69,8 @@ private:
     short int MDR;                    //Memory data register
     bool stepByStep = false;          //Bandera para activar la ejecución paso a paso
     unsigned int numInstructions = 0; //Número de instrucciones ejecutadas
+    file displayLog;                  //Se crea objeto de la clase file, para almacenar el log del display
+    file dataLog();                   //Crea un objeto tipo file, para crear archivo log del display
     //Metodos
 public:
     controlUnit(short int *memory, unsigned int orig, string fileName); //Constructor

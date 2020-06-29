@@ -146,7 +146,6 @@ void controlUnit::simulate()
             {
                 numInstructions++; //Sino ingresa un caracter sigue contacto el numero de instrucciones
             }
-            fflush(stdin);
         }
         if (MAR == OS_DSR) //Activa display
         {
@@ -162,6 +161,7 @@ void controlUnit::simulate()
         {
             pos = OS_DDR & MAX_VALUE;
             printf("%c", Memory[pos]);
+            displayLog.addContentToFIle(Memory[pos]); //Agrega contenido al archivo
             pos = OS_DSR & MAX_VALUE;
             Memory[pos] = 0; //Le lleva al bit[15] del DSR un '0'
         }
@@ -171,6 +171,7 @@ void controlUnit::simulate()
             showRegisters(false);
     }
     showRegisters(false);
+    displayLog.displayLogClose();
 }
 
 void controlUnit::FETCH()

@@ -7,6 +7,9 @@
 
 using namespace std;
 
+file::file(){
+    displayLog.open("../../../test/pantalla.log");
+}
 file::file(string _url_path)
 {
     url_path = _url_path;
@@ -86,8 +89,9 @@ bool file::selectPathType()
     cout << "2.Relative (Recommended for file located in the same project directory)" << endl
          << endl
          << ":> ";
-    fflush( stdout ); //Libera buffer
-    while (!kbhit()); //Se queda a la espera de que ingrese un caracter y envie enter
+    fflush(stdout); //Libera buffer
+    while (!kbhit())
+        ; //Se queda a la espera de que ingrese un caracter y envie enter
     pathType = getchp();
     systemClear();
     if (pathType == '1')
@@ -128,7 +132,7 @@ bool file::selectPathType()
              << endl;
         return selectPathType();
     }
-    else if (pathType == 'c' ||  pathType == 'C')
+    else if (pathType == 'c' || pathType == 'C')
     {
         cout << "Canceled" << endl
              << endl;
@@ -167,23 +171,27 @@ bool file::checkFileType()
              << endl;
         return false;
     }
-    cout<<"Invalid file, try again or press 'q' to exit program, 'c' to load file cancel"<<endl<<endl;
+    cout << "Invalid file, try again or press 'q' to exit program, 'c' to load file cancel" << endl
+         << endl;
     return false;
 }
 
-void file::set_fileName(){
+void file::set_fileName()
+{
     int size = url_path.length();
     int initialPosName;
     for (int i = 0; i < size; i++)
     {
-        if(url_path[i] != 47 && url_path[i] != 92 && url_path[i] != '.') //Si url_path[i] es diferente a (/, \, .)
+        if (url_path[i] != 47 && url_path[i] != 92 && url_path[i] != '.') //Si url_path[i] es diferente a (/, \, .)
         {
             initialPosName = i;
-            i=size;
+            i = size;
         }
     }
-    fileName = url_path.substr(initialPosName,size);
+    fileName = url_path.substr(initialPosName, size);
 }
 
-
-
+void file::addContentToFIle(char newContent)
+{
+    displayLog << newContent;
+}
