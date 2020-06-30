@@ -1,9 +1,9 @@
 #include "../include/breakpoint.h"
-#include <iostream>      //Libreria para el manejo de perifericos
-#include <string>        //Libreia para el manejo de string´s
-#include <stdlib.h>      //Para manejar new y delete
-#include <stdio.h>       //Libreria para el manejo de streams
-#include <bits/stdc++.h> //Libreria para pasar de string a hex y viceversa
+#include <iostream> //Libreria para el manejo de perifericos
+#include <string>   //Libreia para el manejo de string´s
+#include <stdlib.h> //Para manejar new y delete
+#include <stdio.h>  //Libreria para el manejo de streams
+#include <sstream>  //Libreria para pasar de string a hex y viceversa
 
 using namespace std;
 
@@ -247,13 +247,14 @@ void breakpoint::show_all()
     }
 }
 
-void breakpoint::resetBreakpoints(){
-    PC =NULL;
+void breakpoint::resetBreakpoints()
+{
+    PC = NULL;
     IR = NULL;
-    CC = NULL; 
+    CC = NULL;
     PSR = NULL;
     for (int i = 0; i < 8; i++)
     {
-        R[i]= NULL;
+        R[i] = NULL;
     }
 }
